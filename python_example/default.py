@@ -4,7 +4,7 @@ from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.utils.structures.game_data_struct import GameTickPacket
 
 
-class PythonExample(BaseAgent):
+class Default(BaseAgent):
 
     def initialize_agent(self):
         #This runs once before the bot starts up
@@ -26,8 +26,8 @@ class PythonExample(BaseAgent):
         else:
             turn = 1.0
 
-        self.controller_state.throttle = 1.0
-        self.controller_state.steer = turn
+        #self.controller_state.throttle = 1.0
+        #self.controller_state.steer = turn
 
         return self.controller_state
 
