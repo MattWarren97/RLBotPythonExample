@@ -104,6 +104,20 @@ class DataTracker:
         self.timeDifferences = []
         self.ctrlInputs = []
         self.dataCount = 0
+        self.generateFormatFile()
+
+    def generateFormatFile(self):
+        with open('MovementDataFmt.csv', 'w') as csvFile:
+            dataFormatWriter = csv.writer(csvFile)
+            gameStateHeaders = ['carLocX', 'carLocY', 'carDirX', 'carDirY', 'carVelX', 'carVelY']
+            dataFormatHeader = []
+            for h in gameStateHeaders:
+                dataFormatHeader.append(h + "_0")
+            for h in gameStateHeaders:
+                dataFormatHeader.append(h + "_1")
+            dataFormatHeader = dataFormatHeader + ["throttle", "steer", "time"]
+            dataFormatWriter.writerow(dataFormatHeader)
+
 
     def processState(self, deltaTime, prevContrState, newGameState):
         if not self.initialised:
