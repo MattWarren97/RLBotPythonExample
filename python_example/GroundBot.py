@@ -104,10 +104,17 @@ class DataTracker:
         self.timeDifferences = []
         self.ctrlInputs = []
         self.dataCount = 0
+        self.dataPerPrint = 1000
+        self.dataPerWrite = 1000
+        self.writeCount = 0
+        self.fileName = "MovementData/" + str(time.time()) + ".csv"
         self.generateFormatFile()
 
+
+
     def generateFormatFile(self):
-        with open('MovementDataFmt.csv', 'w') as csvFile:
+      
+        with open(self.fileName, 'w') as csvFile:
             dataFormatWriter = csv.writer(csvFile)
             gameStateHeaders = ['carLocX', 'carLocY', 'carDirX', 'carDirY', 'carVelX', 'carVelY']
             dataFormatHeader = []
@@ -129,16 +136,17 @@ class DataTracker:
             self.ctrlInputs.append(prevContrState)
             self.initialised = True
             self.dataCount += 1
-            if (self.dataCount%1000 == 0):
+            if (self.dataCount%self.dataPerPrint == 0):
                 print("Data count is " + str(self.dataCount))
-        if (self.dataCount > 0) and (self.dataCount % 10000 == 0):
-            print("Have collected 10000 data points, writing to csv")
+        if (self.dataCount > 0) and (self.dataCount % self.dataPerWrite == 0):
+            print("Have collected " + str(self.dataPerWrite) + " data points, writing to csv")
             sys.stdout.flush()
-            with open('MovementData.csv', 'w') as csvFile:
+            dataOffset = self.writeCount*self.dataPerWrite
+            self.writeCount += 1
+            with open(self.fileName, 'a') as csvFile: #a - append
                 movementWriter = csv.writer(csvFile)
-                firstDataUnit = DataUnit(self.gameStates[0])
-                movementWriter.writerow(firstDataUnit.getStrList())
-                for i in range(0, self.dataCount):
+
+                for i in range(dataOffset, self.dataCount):
                     dataUnit = DataUnit(self.gameStates[i], self.timeDifferences[i], self.gameStates[i+1], self.ctrlInputs[i])
                     movementWriter.writerow(dataUnit.getStrList())
               
