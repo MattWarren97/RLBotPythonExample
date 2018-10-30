@@ -8,7 +8,8 @@ from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.utils.structures.game_data_struct import GameTickPacket
 
 
-
+def setInstrLength():
+    return random.uniform(0.5, 3)
 
 class GroundBot(BaseAgent):
 
@@ -19,8 +20,9 @@ class GroundBot(BaseAgent):
         self.prevPacketSysTime = 0
         self.deltaTime = 0;
         self.initialTime = 0
-        self.ticksPerSecond = 0
+        self.ticksPerInstr = 0
         self.instrNewSecond = True
+        self.instrLength = setInstrLength()
         self.dataTracker = DataTracker()
 
     #work out length of time since previous frame.
@@ -32,23 +34,24 @@ class GroundBot(BaseAgent):
             self.deltaTime = 0
             return False
         else:
-            self.ticksPerSecond += 1
+            self.ticksPerInstr += 1
             newTime = time.clock()
             self.deltaTime = newTime-self.prevPacketSysTime
             self.prevPacketSysTime=newTime
 
-            if newTime-self.secondStartTime >= 1:
-                #1 second has passed
-                print(str(self.ticksPerSecond) + " physics ticks in the last second")
-                self.ticksPerSecond = 0
+            if newTime-self.secondStartTime >= self.instrLength:
+                #time for next instruction to be given
+                print(str(self.ticksPerInstr) + " physics ticks for the last instruction - Length: ", self.instrLength)
+                self.ticksPerInstr = 0
                 self.instrNewSecond = True
                 self.secondStartTime = newTime
+                self.instrLength = setInstrLength()
             return True
 
     def processState(self, deltaTime, prevContrState, gameState):
         self.dataTracker.processState(deltaTime, prevContrState, gameState)
 
-    def setInstructions(self, ballLoc, gameState):
+    def setInstructions(self, gameState):
         if self.instrNewSecond:
             self.instrNewSecond = False
             self.controllerState.throttle = (random.random()*2)-1 #between -1 and 1
@@ -65,20 +68,20 @@ class GroundBot(BaseAgent):
         if not cont:
             return self.controllerState
         
-        ball_location = Vector2(packet.game_ball.physics.location.x, packet.game_ball.physics.location.y)
+        ball_location = Vector3(packet.game_ball.physics.location.x, packet.game_ball.physics.location.y, packet.game_ball.physics.location.z)
         my_car = packet.game_cars[self.index]
-        car_location = Vector2(my_car.physics.location.x, my_car.physics.location.y)
-        car_direction = get_car_facing_vector(my_car)
-        car_velocity = Vector2(my_car.physics.velocity.x, my_car.physics.velocity.y)
+        car_location = Vector3(my_car.physics.location.x, my_car.physics.location.y, my_car.physics.location.z)
+        car_orientation = Vector3(my_car.physics.rotation.pitch, my_car.physics.rotation.yaw, my_car.physics.rotation.roll)
+        car_velocity = Vector3(my_car.physics.velocity.x, my_car.physics.velocity.y, my_car.physics.velocity.z)
         
         gameActive = packet.game_info.is_round_active
         if not gameActive:
             return self.controllerState
-        currentState = GameState(car_location, car_direction, car_velocity)
+        currentState = GameState(ball_location, car_location, car_orientation, car_velocity)
 
         self.processState(self.deltaTime, self.prevInstr, currentState)
         
-        self.setInstructions(ball_location, currentState)
+        self.setInstructions(currentState)
         
 
         """car_to_ball = ball_location - car_location
@@ -114,15 +117,18 @@ class DataTracker:
 
     def generateFormatFile(self):
       
-        with open(self.fileName, 'w') as csvFile:
+        with open(self.fileName, 'w', newline='') as csvFile:
             dataFormatWriter = csv.writer(csvFile)
-            gameStateHeaders = ['carLocX', 'carLocY', 'carDirX', 'carDirY', 'carVelX', 'carVelY']
+            carStateHeaders = ['carLocX', 'carLocY', 'carLocZ', 'carPitch', 'carYaw', 'carRoll', 'carVelX', 'carVelY', 'carVelZ']
+            ballStateHeaders = ['ballLocX', 'ballLocY', 'ballLocZ', 'ballVelX', 'ballVelY', 'ballVelZ']
+            controlHeaders = ["throttle", "steer", "time"]
             dataFormatHeader = []
-            for h in gameStateHeaders:
+            for h in carStateHeaders:
                 dataFormatHeader.append(h + "_0")
-            for h in gameStateHeaders:
+            for h in carStateHeaders:
                 dataFormatHeader.append(h + "_1")
-            dataFormatHeader = dataFormatHeader + ["throttle", "steer", "time"]
+            dataFormatHeader.extend(ballStateHeaders)
+            dataFormatHeader.extend(controlHeaders)
             dataFormatWriter.writerow(dataFormatHeader)
 
 
@@ -143,7 +149,7 @@ class DataTracker:
             sys.stdout.flush()
             dataOffset = self.writeCount*self.dataPerWrite
             self.writeCount += 1
-            with open(self.fileName, 'a') as csvFile: #a - append
+            with open(self.fileName, 'a', newline='') as csvFile: #a - append
                 movementWriter = csv.writer(csvFile)
 
                 for i in range(dataOffset, self.dataCount):
@@ -152,14 +158,20 @@ class DataTracker:
               
 
 class GameState:
-    def __init__(self, carLoc, carDir, carVel):
+    def __init__(self, ballLoc, carLoc, carOri, carVel):
+        self.ballLoc = ballLoc
         self.carLoc = carLoc
-        self.carDir = carDir
+        self.carOri = carOri
         self.carVel = carVel
 
     def convertToStrList(self):
-        return [str(self.carLoc.x), str(self.carLoc.y), str(self.carDir.x), str(self.carDir.y), str(self.carVel.x), str(self.carVel.y)]
-
+        gameList = []
+        gameList.extend(self.ballLoc.getStrList())
+        gameList.extend(self.carLoc.getStrList())
+        gameList.extend(self.carOri.getStrList())
+        gameList.extend(self.carVel.getStrList())
+        return gameList
+        
 class DataUnit:
     def __init__(self, prevGameState, deltaT=None, newGameState=None, ctrlInputs=None):
         if deltaT is None:
@@ -179,18 +191,22 @@ class DataUnit:
         return self.strList
 
 
-class Vector2:
-    def __init__(self, x=0, y=0):
+class Vector3:
+    def __init__(self, x=0, y=0, z=0):
         self.x = float(x)
         self.y = float(y)
+        self.z = float(z)
 
     def __add__(self, val):
-        return Vector2(self.x + val.x, self.y + val.y)
+        return Vector3(self.x + val.x, self.y + val.y, self.z + val.z)
 
     def __sub__(self, val):
-        return Vector2(self.x - val.x, self.y - val.y)
+        return Vector3(self.x - val.x, self.y - val.y, self.z - val.z)
 
-    def correction_to(self, ideal):
+    def getStrList(self):
+        return [str(self.x), str(self.y), str(self.z)]
+
+    """def correction_to(self, ideal):
         # The in-game axes are left handed, so use -x
         current_in_radians = math.atan2(self.y, -self.x)
         ideal_in_radians = math.atan2(ideal.y, -ideal.x)
@@ -204,14 +220,15 @@ class Vector2:
             else:
                 correction -= 2 * math.pi
 
-        return correction
+        return correction"""
 
 
-def get_car_facing_vector(car):
+"""def get_car_facing_vector(car):
     pitch = float(car.physics.rotation.pitch)
     yaw = float(car.physics.rotation.yaw)
+    roll = float(car.physics.rotation.roll)
 
     facing_x = math.cos(pitch) * math.cos(yaw)
     facing_y = math.cos(pitch) * math.sin(yaw)
 
-    return Vector2(facing_x, facing_y)
+    return Vector2(facing_x, facing_y)"""
