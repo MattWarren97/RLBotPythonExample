@@ -8,7 +8,7 @@ throttle, steer, time
  """
 
 def readCSV():
-	fileName = "MovementData/1540941157.3035424.csv"
+	fileName = "MovementData/1540944895.429397.csv"
 	features = []
 	targets = []
 	with open(fileName, 'r') as csvFile:
@@ -18,22 +18,17 @@ def readCSV():
 		for c, row in enumerate(dataReader):
 			f = []
 			t = []
-			if c < 15:
-				#print("Row: ", c, bytes(str(row), 'utf-8'))
-				print("Row: ", c, row)
-				continue
-			else:
-				break
-			if c==0:
-				print("Header " + ", ".join(row))
-				continue
-			f.extend(row[0:5])
-			t.extend(row[6:11])
-			f.extend(row[12:14])
-			print("Fetaures: ", f)
-			print("Targets: ", t)
-			if c % 15 == 0:
-				break
+			f.extend(row[0:15])
+			t.extend(row[15:30])
+			f.extend(row[30:33])
+			#print("Fetaures: ", f)
+			#print("Targets: ", t)
+			if c%1000 ==0:
+				print("C: ", c)
+				print("Features: ", f)
+				print("Targets: ", t, "\n\n")
+				#print("Row: ", row, "\n\n\n")
+
 		print(dataFormat)
 
 			

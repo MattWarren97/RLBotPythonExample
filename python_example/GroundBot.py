@@ -69,6 +69,7 @@ class GroundBot(BaseAgent):
             return self.controllerState
         
         ball_location = Vector3(packet.game_ball.physics.location.x, packet.game_ball.physics.location.y, packet.game_ball.physics.location.z)
+        ball_velocity = Vector3(packet.game_ball.physics.velocity.x, packet.game_ball.physics.velocity.y, packet.game_ball.physics.velocity.z)
         my_car = packet.game_cars[self.index]
         car_location = Vector3(my_car.physics.location.x, my_car.physics.location.y, my_car.physics.location.z)
         car_orientation = Vector3(my_car.physics.rotation.pitch, my_car.physics.rotation.yaw, my_car.physics.rotation.roll)
@@ -77,7 +78,7 @@ class GroundBot(BaseAgent):
         gameActive = packet.game_info.is_round_active
         if not gameActive:
             return self.controllerState
-        currentState = GameState(ball_location, car_location, car_orientation, car_velocity)
+        currentState = GameState(ball_location, ball_velocity, car_location, car_orientation, car_velocity)
 
         self.processState(self.deltaTime, self.prevInstr, currentState)
         
@@ -119,15 +120,13 @@ class DataTracker:
       
         with open(self.fileName, 'w', newline='') as csvFile:
             dataFormatWriter = csv.writer(csvFile)
-            carStateHeaders = ['carLocX', 'carLocY', 'carLocZ', 'carPitch', 'carYaw', 'carRoll', 'carVelX', 'carVelY', 'carVelZ']
-            ballStateHeaders = ['ballLocX', 'ballLocY', 'ballLocZ', 'ballVelX', 'ballVelY', 'ballVelZ']
+            gameStateHeaders = ['ballLocX', 'ballLocY', 'ballLocZ', 'ballVelX', 'ballVelY', 'ballVelZ', 'carLocX', 'carLocY', 'carLocZ', 'carPitch', 'carYaw', 'carRoll', 'carVelX', 'carVelY', 'carVelZ']
             controlHeaders = ["throttle", "steer", "time"]
             dataFormatHeader = []
-            for h in carStateHeaders:
+            for h in gameStateHeaders:
                 dataFormatHeader.append(h + "_0")
-            for h in carStateHeaders:
+            for h in gameStateHeaders:
                 dataFormatHeader.append(h + "_1")
-            dataFormatHeader.extend(ballStateHeaders)
             dataFormatHeader.extend(controlHeaders)
             dataFormatWriter.writerow(dataFormatHeader)
 
@@ -158,8 +157,9 @@ class DataTracker:
               
 
 class GameState:
-    def __init__(self, ballLoc, carLoc, carOri, carVel):
+    def __init__(self, ballLoc, ballVel, carLoc, carOri, carVel):
         self.ballLoc = ballLoc
+        self.ballVel = ballVel
         self.carLoc = carLoc
         self.carOri = carOri
         self.carVel = carVel
@@ -167,6 +167,7 @@ class GameState:
     def convertToStrList(self):
         gameList = []
         gameList.extend(self.ballLoc.getStrList())
+        gameList.extend(self.ballVel.getStrList())
         gameList.extend(self.carLoc.getStrList())
         gameList.extend(self.carOri.getStrList())
         gameList.extend(self.carVel.getStrList())
