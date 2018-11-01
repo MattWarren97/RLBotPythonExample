@@ -18,13 +18,13 @@ def identicalLists(A, B):
 	return True
 
 def getFeatures(row):
-	#return row[6:15] #for now, ignore the ball, otherwise 0:15
+	#ignore the ball; carPrevState is 6:15, carAfterState is 21:30
 	f = row[6:15]
 	f.extend(row[21:30])
 	return f
 
 def getTargets(row):
-	#return row[21:30] #ignore the ball, otherwise 15:3
+	#instructions are 30:32, time is 32.
 	return row[30:33]
 
 def getInstructions(row):

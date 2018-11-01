@@ -3,6 +3,7 @@ import time
 import csv
 import random
 import sys
+import tensorflow as tf
 
 from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.utils.structures.game_data_struct import GameTickPacket
@@ -24,6 +25,11 @@ class GroundBot(BaseAgent):
         self.instrStartTime = 0 #time when the new instruction was started
         self.instrLength = 0 #duration for which the instruction should be held.
         self.dataTracker = DataTracker() #handles writing the data
+
+        #fancy tf stuff needed for generating truncated normal values
+        self.tfSession = tf.Session()
+        self.t_normal_gen = tf.truncated_normal((2,), mean=0, stddev=0.5)
+        
 
     def processTime(self):
         #First: check if the current instruction should have ended:
@@ -47,9 +53,18 @@ class GroundBot(BaseAgent):
 
 
     def setNewInstructions(self):
+        #want random throttle and steer; want to aim for steer usually close to 0, throttle usually close to -1 or 1
         self.needNewInstr = False
-        self.controllerState.throttle = (random.random()*2)-1 #between -1 and 1
-        self.controllerState.steer = (random.random()*2)-1
+        with self.tfSession.as_default():
+            (notThrottle, steer) = t_normal_gen.eval()
+            if notThrottle < 0:
+                self.controllerState.throttle = -1 - notThrottle
+            else:
+                self.controllerState.throttle = 1-notThrottle
+
+            self.controllerState.steer = steer
+        #self.controllerState.throttle = (random.random()*2)-1 #between -1 and 1
+        #self.controllerState.steer = (random.random()*2)-1
         print("New instructions are throttle: " + str(self.controllerState.throttle) + ", steer: " + str(self.controllerState.steer))
         self.ticksPerInstr = 0
 
