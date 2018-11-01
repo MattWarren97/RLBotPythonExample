@@ -3,7 +3,7 @@ import time
 import csv
 import random
 import sys
-import tensorflow as tf
+#import tensorflow as tf
 
 from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.utils.structures.game_data_struct import GameTickPacket
@@ -27,8 +27,8 @@ class GroundBot(BaseAgent):
         self.dataTracker = DataTracker() #handles writing the data
 
         #fancy tf stuff needed for generating truncated normal values
-        self.tfSession = tf.Session()
-        self.t_normal_gen = tf.truncated_normal((2,), mean=0, stddev=0.5)
+        #self.tfSession = tf.Session()
+        #self.t_normal_gen = tf.truncated_normal((2,), mean=0, stddev=0.5)
         
 
     def processTime(self):
@@ -55,15 +55,26 @@ class GroundBot(BaseAgent):
     def setNewInstructions(self):
         #want random throttle and steer; want to aim for steer usually close to 0, throttle usually close to -1 or 1
         self.needNewInstr = False
-        with self.tfSession.as_default():
-            (notThrottle, steer) = t_normal_gen.eval()
-            if notThrottle < 0:
-                self.controllerState.throttle = -1 - notThrottle
-            else:
-                self.controllerState.throttle = 1-notThrottle
+        #with self.tfSession.as_default():
+        #    (notThrottle, steer) = t_normal_gen.eval()
+        #    if notThrottle < 0:
+        #        self.controllerState.throttle = -1 - notThrottle
+        #    else:
+        #        self.controllerState.throttle = 1-notThrottle
 
-            self.controllerState.steer = steer
-        #self.controllerState.throttle = (random.random()*2)-1 #between -1 and 1
+        #    self.controllerState.steer = steer
+        randomForThr = (random.random()*2)-1
+        randomForSte = (random.random()*2)-1
+        if randomForThr < 0:
+            self.controllerState.throttle = -1 - (-1*(math.pow(randomForThr, 2)))
+        else:
+            self.controllerState.throttle = 1 - (math.pow(randomForThr, 2))
+        if randomForSte < 0:
+            self.controllerState.steer = -1*(math.pow(randomForSte, 2))
+        else:
+            self.controllerState.steer = (math.pow(randomForSte, 2))
+
+        #self.controllerState.throttle = math.pow((random.random()*2)-1, 2) #between -1 and 1
         #self.controllerState.steer = (random.random()*2)-1
         print("New instructions are throttle: " + str(self.controllerState.throttle) + ", steer: " + str(self.controllerState.steer))
         self.ticksPerInstr = 0
