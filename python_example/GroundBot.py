@@ -9,7 +9,7 @@ from rlbot.utils.structures.game_data_struct import GameTickPacket
 
 
 def setInstrLength():
-    return random.uniform(0.5, 3)
+    return random.uniform(0, 3)
 
 class GroundBot(BaseAgent):
 
@@ -18,7 +18,7 @@ class GroundBot(BaseAgent):
         self.controllerState = SimpleControllerState()
         self.prevInstr = self.controllerState
         self.prevPacketSysTime = 0
-        self.deltaTime = 0;
+        self.deltaTime = 0
         self.initialTime = 0
         self.ticksPerInstr = 0
         self.newInstr = True

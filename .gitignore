@@ -108,4 +108,6 @@ ENV/
 /build
 
 # Gradle files
-/.gradle
+/.gradleJonStuff
+\nJonStuff
+JonStuff

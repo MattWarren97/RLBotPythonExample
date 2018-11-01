@@ -77,50 +77,52 @@ def readCSV():
 		#for i, f in enumerate(features):
 			#print("Feature ", i, ": ", f, "\nMapsTo: Target: ", targets[i], "\n\n")
 		print("Length  of features, targets is: ", len(features), " - ", len(targets))
-		mapping = list(zip(features, targets))
-		random.shuffle(mapping)
-		print("Have collected all Feature and Targets from data source, now to run the MLPRegressor:\n\n")
+		return features, targets
 
-		print(features)
-		print("\n\n\n\n\n\n\n\n\n\n\n")
+def trainMLPRegressor(features, targets):
+	mapping = list(zip(features, targets))
+	random.shuffle(mapping)
+	print("Have collected all Feature and Targets from data source, now to run the MLPRegressor:\n\n")
 
-		f_train, f_test, t_train, t_test = train_test_split(features, targets)
+	print(features)
+	print("\n\n\n\n\n\n\n\n\n\n\n")
 
-		print("Size of training set is: f, t: ", len(f_train), ", ", len(t_train))
-		print("Size of testing set is: f, t: ", len(f_test), ", ", len(t_test))
-		dataScaler = StandardScaler()
-		dataScaler.fit(f_train)
+	f_train, f_test, t_train, t_test = train_test_split(features, targets)
 
-		f_train = dataScaler.transform(f_train)
-		f_test = dataScaler.transform(f_test)
+	print("Size of training set is: f, t: ", len(f_train), ", ", len(t_train))
+	print("Size of testing set is: f, t: ", len(f_test), ", ", len(t_test))
+	dataScaler = StandardScaler()
+	dataScaler.fit(f_train)
 
-
-
-		mlp = MLPRegressor(hidden_layer_sizes=(30, 30, 30), max_iter=10000)
-		#print("From ", groundPositionPredictor.n_iter_, " iterations")
-		#print("Predicting: ", groundPositionPredictor.n_outputs_, " outputs")
-
-		mlp.fit(f_train, t_train)
-
-		predictions = mlp.predict(f_test)
-		for i, pred in enumerate(predictions):
-			print("Prediction: ", pred, ", real value: ", t_test[i])
-
-		print("Training score: ", mlp.score(f_train, t_train))
-		print("Testing score: ", mlp.score(f_test, t_test))
-
-
-		#now compare predictions with t_test
+	f_train = dataScaler.transform(f_train)
+	f_test = dataScaler.transform(f_test)
 
 
 
-			
-			
+	mlp = MLPRegressor(hidden_layer_sizes=(30, 30, 30), max_iter=10000)
+	#print("From ", groundPositionPredictor.n_iter_, " iterations")
+	#print("Predicting: ", groundPositionPredictor.n_outputs_, " outputs")
+
+	mlp.fit(f_train, t_train)
+
+	predictions = mlp.predict(f_test)
+	for i, pred in enumerate(predictions):
+		print("Prediction: ", pred, ", real value: ", t_test[i])
+
+	print("TRAINING")
+	trainingPredictions = mlp.predict(f_train)
+	for i, pred in enumerate(trainingPredictions):
+		print("Prediction: ", pred, ", real value: ", t_train[i])
+
+	print("Training score: ", mlp.score(f_train, t_train))
+	print("Testing score: ", mlp.score(f_test, t_test))
+
 
 
 
 def main():
-	readCSV()
+	(features, targets) = readCSV()
+	trainMLPRegressor(features, targets)
 
 
 if __name__ == "__main__":
