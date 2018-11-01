@@ -24,8 +24,8 @@ def getFeatures(row):
 	return f
 
 def getTargets(row):
-	#return row[21:30] #ignore the ball, otherwise 15:30
-	return row[30:32]
+	#return row[21:30] #ignore the ball, otherwise 15:3
+	return row[30:33]
 
 def getInstructions(row):
 	return row[30:32] #30: throttle, 31: steer
@@ -34,13 +34,9 @@ def getTime(row):
 	return row[32]
 
 def readCSV():
-	fileName = "MovementData/1540992906.2537074.csv"
+	fileName = "MovementData/1541104299.059675.csv"
 	features = []
 	targets = []
-	prevInstr = []
-	instrTime = 0
-	instrTargets = []
-	instrFeatures = []
 	with open(fileName, 'r') as csvFile:
 		print("Reading inputs from ", fileName)
 		dataReader = csv.reader(csvFile, lineterminator='j')
@@ -49,25 +45,10 @@ def readCSV():
 		for c, row in enumerate(dataReader):
 			row = [float(i) for i in row]
 
-			if not prevInstr: #if first element
-				prevInstr = getInstructions(row)
-			else:
-				instructions = getInstructions(row)
-				if identicalLists(instructions, prevInstr): #we don't have a new instruction
-					instrTime += getTime(row)
-					instrTargets = getTargets(row) #these could be the last 'targets' of the instruction
-				else: #We have a new instruction, hence the end (final result) of the previous instruction (for its total duration) is known.
-					#print("Index: ", c, ", new instructions: ", instructions, ". With time: ", instrTime)
-
-					if instrFeatures:
-						#first instruction is ignored, otherwise add features, targets to lists.
-						#instrFeatures.append(instrTime)
-						features.append(instrFeatures)
-						instrTargets.append(instrTime)
-						targets.append(instrTargets)
-					prevInstr = instructions
-					instrFeatures = getFeatures(row) #features of the new row are the start of the next instruction
-					instrTime = 0
+			t = getTargets(row)
+			f = getFeatures(row)
+			features.append(f)
+			targets.append(t)
 
 
 			#if c%1000 ==0:
@@ -76,7 +57,7 @@ def readCSV():
 
 		print(dataFormat)
 		#for i, f in enumerate(features):
-			#print("Feature ", i, ": ", f, "\nMapsTo: Target: ", targets[i], "\n\n")
+		#	print("Feature ", i, ": ", f, "\nMapsTo: Target: ", targets[i], "\n\n")
 		print("Length  of features, targets is: ", len(features), " - ", len(targets))
 		return features, targets
 
@@ -90,6 +71,10 @@ def trainMLPRegressor(features, targets):
 
 	f_train, f_test, t_train, t_test = train_test_split(features, targets)
 
+	#for i,a in enumerate(t_train):
+	#	if i % 100 ==0:
+	#		print("Split target: ", a)
+
 	print("Size of training set is: f, t: ", len(f_train), ", ", len(t_train))
 	print("Size of testing set is: f, t: ", len(f_test), ", ", len(t_test))
 	dataScaler = StandardScaler()
@@ -99,21 +84,9 @@ def trainMLPRegressor(features, targets):
 	f_test = dataScaler.transform(f_test)
 
 
-
 	mlp = MLPRegressor(early_stopping=True, hidden_layer_sizes=(20, 20), max_iter=10000)
-	#print("From ", groundPositionPredictor.n_iter_, " iterations")
-	#print("Predicting: ", groundPositionPredictor.n_outputs_, " outputs")
 
 	mlp.fit(f_train, t_train)
-
-	#predictions = mlp.predict(f_test)
-	#for i, pred in enumerate(predictions):
-	#	print("Prediction: ", pred, ", real value: ", t_test[i])
-
-	#print("TRAINING")
-	#trainingPredictions = mlp.predict(f_train)
-	#for i, pred in enumerate(trainingPredictions):
-	#	print("Prediction: ", pred, ", real value: ", t_train[i])
 
 	print("Training score: ", mlp.score(f_train, t_train))
 	print("Testing score: ", mlp.score(f_test, t_test))
@@ -149,7 +122,6 @@ def trainLinearRegressor(features, targets):
 
 def main():
 	(features, targets) = readCSV()
-	#trainMLPRegressor(features, targets)
 	trainLinearRegressor(features, targets)
 	trainMLPRegressor(features, targets)
 
