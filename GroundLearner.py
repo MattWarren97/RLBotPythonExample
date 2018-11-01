@@ -1,4 +1,5 @@
 from sklearn.neural_network import MLPRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import csv
@@ -82,10 +83,10 @@ def readCSV():
 def trainMLPRegressor(features, targets):
 	mapping = list(zip(features, targets))
 	random.shuffle(mapping)
-	print("Have collected all Feature and Targets from data source, now to run the MLPRegressor:\n\n")
+	print("Running MLP Regression\n\n")
 
-	print(features)
-	print("\n\n\n\n\n\n\n\n\n\n\n")
+	#print(features)
+	#print("\n\n\n\n\n\n\n\n\n\n\n")
 
 	f_train, f_test, t_train, t_test = train_test_split(features, targets)
 
@@ -99,29 +100,57 @@ def trainMLPRegressor(features, targets):
 
 
 
-	mlp = MLPRegressor(hidden_layer_sizes=(30, 30, 30), max_iter=10000)
+	mlp = MLPRegressor(early_stopping=True, hidden_layer_sizes=(20, 20), max_iter=10000)
 	#print("From ", groundPositionPredictor.n_iter_, " iterations")
 	#print("Predicting: ", groundPositionPredictor.n_outputs_, " outputs")
 
 	mlp.fit(f_train, t_train)
 
-	predictions = mlp.predict(f_test)
-	for i, pred in enumerate(predictions):
-		print("Prediction: ", pred, ", real value: ", t_test[i])
+	#predictions = mlp.predict(f_test)
+	#for i, pred in enumerate(predictions):
+	#	print("Prediction: ", pred, ", real value: ", t_test[i])
 
-	print("TRAINING")
-	trainingPredictions = mlp.predict(f_train)
-	for i, pred in enumerate(trainingPredictions):
-		print("Prediction: ", pred, ", real value: ", t_train[i])
+	#print("TRAINING")
+	#trainingPredictions = mlp.predict(f_train)
+	#for i, pred in enumerate(trainingPredictions):
+	#	print("Prediction: ", pred, ", real value: ", t_train[i])
 
 	print("Training score: ", mlp.score(f_train, t_train))
 	print("Testing score: ", mlp.score(f_test, t_test))
+
+def trainLinearRegressor(features, targets):
+	mapping = list(zip(features, targets))
+	random.shuffle(mapping)
+	print("Running Linear Regression\n\n")
+
+	#print(features)
+	#print("\n\n\n\n\n\n\n\n\n\n\n")
+
+	f_train, f_test, t_train, t_test = train_test_split(features, targets)
+
+	print("Size of training set is: f, t: ", len(f_train), ", ", len(t_train))
+	print("Size of testing set is: f, t: ", len(f_test), ", ", len(t_test))
+	dataScaler = StandardScaler()
+	dataScaler.fit(f_train)
+
+	f_train = dataScaler.transform(f_train)
+	f_test = dataScaler.transform(f_test)
+
+	lr = LinearRegression()
+	lr.fit(f_train, t_train)
+
+	#predictions = lr.predict(f_test)
+	print("Training score: ", lr.score(f_train, t_train))
+	print("Testing score: ", lr.score(f_test, t_test))
+
 
 
 
 
 def main():
 	(features, targets) = readCSV()
+	#trainMLPRegressor(features, targets)
+	trainLinearRegressor(features, targets)
 	trainMLPRegressor(features, targets)
 
 
