@@ -21,7 +21,7 @@ class GroundBot(BaseAgent):
         self.deltaTime = 0;
         self.initialTime = 0
         self.ticksPerInstr = 0
-        self.instrNewSecond = True
+        self.newInstr = True
         self.instrLength = setInstrLength()
         self.dataTracker = DataTracker()
 
@@ -30,7 +30,7 @@ class GroundBot(BaseAgent):
         if (self.initialTime == 0):
             self.prevPacketSysTime = time.clock()
             self.initialTime = self.prevPacketSysTime
-            self.secondStartTime = self.initialTime
+            self.instrStartTime = self.initialTime
             self.deltaTime = 0
             return False
         else:
@@ -39,21 +39,22 @@ class GroundBot(BaseAgent):
             self.deltaTime = newTime-self.prevPacketSysTime
             self.prevPacketSysTime=newTime
 
-            if newTime-self.secondStartTime >= self.instrLength:
+            if newTime-self.instrStartTime >= self.instrLength:
                 #time for next instruction to be given
                 print(str(self.ticksPerInstr) + " physics ticks for the last instruction - Length: ", self.instrLength)
                 self.ticksPerInstr = 0
-                self.instrNewSecond = True
-                self.secondStartTime = newTime
+                self.newInstr = True
+                self.instrStartTime = newTime
                 self.instrLength = setInstrLength()
             return True
 
     def processState(self, deltaTime, prevContrState, gameState):
-        self.dataTracker.processState(deltaTime, prevContrState, gameState)
+        controls = [prevContrState.throttle, prevContrState.steer]
+        self.dataTracker.processState(deltaTime, controls, gameState)
 
     def setInstructions(self, gameState):
-        if self.instrNewSecond:
-            self.instrNewSecond = False
+        if self.newInstr:
+            self.newInstr = False
             self.controllerState.throttle = (random.random()*2)-1 #between -1 and 1
             self.controllerState.steer = (random.random()*2)-1
             print("New instructions are throttle: " + str(self.controllerState.throttle) + ", steer: " + str(self.controllerState.steer))
@@ -67,7 +68,10 @@ class GroundBot(BaseAgent):
         cont = self.processTime()
         if not cont:
             return self.controllerState
-        
+        gameActive = packet.game_info.is_round_active
+        if not gameActive:
+            return self.controllerState
+
         ball_location = Vector3(packet.game_ball.physics.location.x, packet.game_ball.physics.location.y, packet.game_ball.physics.location.z)
         ball_velocity = Vector3(packet.game_ball.physics.velocity.x, packet.game_ball.physics.velocity.y, packet.game_ball.physics.velocity.z)
         my_car = packet.game_cars[self.index]
@@ -75,9 +79,7 @@ class GroundBot(BaseAgent):
         car_orientation = Vector3(my_car.physics.rotation.pitch, my_car.physics.rotation.yaw, my_car.physics.rotation.roll)
         car_velocity = Vector3(my_car.physics.velocity.x, my_car.physics.velocity.y, my_car.physics.velocity.z)
         
-        gameActive = packet.game_info.is_round_active
-        if not gameActive:
-            return self.controllerState
+
         currentState = GameState(ball_location, ball_velocity, car_location, car_orientation, car_velocity)
 
         self.processState(self.deltaTime, self.prevInstr, currentState)
@@ -103,12 +105,11 @@ class GroundBot(BaseAgent):
 
 class DataTracker:
     def __init__(self):
-        self.initialised = False
+        self.initialisedPrevState = False
         self.gameStates = []
         self.timeDifferences = []
         self.ctrlInputs = []
         self.dataCount = 0
-        self.dataPerPrint = 1000
         self.dataPerWrite = 1000
         self.writeCount = 0
         self.fileName = "MovementData/" + str(time.time()) + ".csv"
@@ -132,17 +133,15 @@ class DataTracker:
 
 
     def processState(self, deltaTime, prevContrState, newGameState):
-        if not self.initialised:
+        if not self.initialisedPrevState:
             self.gameStates.append(newGameState)
-            self.initialised=True
+            self.initialisedPrevState=True
         else:
             self.gameStates.append(newGameState)
             self.timeDifferences.append(deltaTime)
             self.ctrlInputs.append(prevContrState)
             self.initialised = True
             self.dataCount += 1
-            if (self.dataCount%self.dataPerPrint == 0):
-                print("Data count is " + str(self.dataCount))
         if (self.dataCount > 0) and (self.dataCount % self.dataPerWrite == 0):
             print("Have collected " + str(self.dataPerWrite) + " data points, writing to csv")
             sys.stdout.flush()
@@ -154,6 +153,7 @@ class DataTracker:
                 for i in range(dataOffset, self.dataCount):
                     dataUnit = DataUnit(self.gameStates[i], self.timeDifferences[i], self.gameStates[i+1], self.ctrlInputs[i])
                     movementWriter.writerow(dataUnit.getStrList())
+                    #print(dataUnit.getStrList())
               
 
 class GameState:
@@ -184,8 +184,8 @@ class DataUnit:
             #we have a full row of data
             prevStrList = prevGameState.convertToStrList()
             newStrList = newGameState.convertToStrList()
-            thr = str(ctrlInputs.throttle)
-            st = str(ctrlInputs.steer)
+            thr = str(ctrlInputs[0])
+            st = str(ctrlInputs[1])
             self.strList = prevStrList + newStrList + [thr] + [st] + [str(deltaT)]
 
     def getStrList(self):
