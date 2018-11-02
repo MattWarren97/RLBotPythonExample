@@ -48,7 +48,7 @@ def readCSV():
 
 			t = getTargets(row)
 			f = getFeatures(row)
-			if (f[2] < 20 and f[2] > 14 and f[11] < 20 and f[11] > 14):
+			if True:#(f[2] < 20 and f[2] > 14 and f[11] < 20 and f[11] > 14):
 				#print("only ground driving")
 				features.append(f)
 				targets.append(t)
@@ -87,7 +87,7 @@ def trainMLPRegressor(features, targets):
 	f_test = dataScaler.transform(f_test)
 
 
-	mlp = MLPRegressor(early_stopping=True, hidden_layer_sizes=(20, 20), max_iter=10000)
+	mlp = MLPRegressor(early_stopping=True, hidden_layer_sizes=(64,16,8), max_iter=10000)
 
 	mlp.fit(f_train, t_train)
 
