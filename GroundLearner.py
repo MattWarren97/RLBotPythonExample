@@ -34,7 +34,8 @@ def getTime(row):
 	return row[32]
 
 def readCSV():
-	fileName = "MovementData/1541104299.059675.csv"
+	#fileName = "MovementData/1541104299.059675.csv"
+	fileName = "MovementData/1541114893.1472585.csv"
 	features = []
 	targets = []
 	with open(fileName, 'r') as csvFile:
