@@ -48,7 +48,7 @@ def readCSV():
 
 			t = getTargets(row)
 			f = getFeatures(row)
-			if (f[2] < 18 and f[2] > 17 and f[11] < 18 and f[11] > 17):
+			if (f[2] < 20 and f[2] > 14 and f[11] < 20 and f[11] > 14):
 				#print("only ground driving")
 				features.append(f)
 				targets.append(t)
