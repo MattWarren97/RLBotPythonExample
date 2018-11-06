@@ -3,11 +3,16 @@ import time
 import csv
 import random
 import sys
-#import tensorflow as tf
+
+#if errors on imports - eg (import tensorflow as tf)
+#may need to include the imports INSIDE the class
+#Saltie discussed it on the Discord ml-discussion channel 7thAugust2018
+#linked to: https://github.com/SaltieRL/Saltie/blob/Dragon/main_agent/saltie.py
 
 from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.utils.structures.game_data_struct import GameTickPacket
 
+import GroundLearner
 
 def setInstrLength():
     return random.uniform(0, 3)
@@ -15,6 +20,8 @@ def setInstrLength():
 class GroundBot(BaseAgent):
 
     def initialize_agent(self):
+
+
         #This runs once before the bot starts up
         self.controllerState = SimpleControllerState() #to be returned by get_output on each tick
         self.currentGameState = None #game state in the most recent packet received.
@@ -25,7 +32,11 @@ class GroundBot(BaseAgent):
         self.instrStartTime = 0 #time when the new instruction was started
         self.instrLength = 0 #duration for which the instruction should be held.
         self.dataTracker = DataTracker() #handles writing the data
-
+        
+        movementData = "MovementData/"
+        self.learner = GroundLearner(movementData)
+        self.movementMLP = self.learner.trainMLPRegressor()
+        
         #fancy tf stuff needed for generating truncated normal values
         #self.tfSession = tf.Session()
         #self.t_normal_gen = tf.truncated_normal((2,), mean=0, stddev=0.5)
