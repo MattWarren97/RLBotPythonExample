@@ -130,6 +130,21 @@ class GroundBot(BaseAgent):
         self.controllerState.steer = targets[0][1]
         self.setInstructionTime(targets[0][2]+2)
 
+    def searchHitBallInstructions(self):
+        carFeatures = []
+        ballLoc, ballVel = self.predictBallState()
+
+        gm = self.currentGameModel
+
+        for o in [gm.carLoc, gm.carOri, gm.carVel]:
+            features.extend(o.getStrList())
+
+
+    def testHitBallInstructions(self, features, targetLoc):
+        scaledF = self.learner.lcpScaler.transform(features)
+        predictedLoc = self.learner.lcpMLP.predict(scaledF)[0]
+
+
 
 
     def setRandInstructions(self):

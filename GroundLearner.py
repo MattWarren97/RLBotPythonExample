@@ -40,7 +40,7 @@ class GroundLearner:
 		return f
 
 	def getLearnCarPosTargets(self, row):
-		return row[21:30]
+		return row[21:24] #changed from 21:30 initially
 
 	def getTargets(self, row):
 		#instructions are 30:32, time is 32.
@@ -157,7 +157,7 @@ class GroundLearner:
 		dataScaler.fit(f_train)
 
 		self.hitBallScaler = dataScaler
-		
+
 		f_train = self.hitBallScaler.transform(f_train)
 		f_test = self.hitBallScaler.transform(f_test)
 
@@ -183,9 +183,24 @@ class GroundLearner:
 
 		dataScaler = StandardScaler()
 		dataScaler.fit(f_train)
+		self.lcpScaler = dataScaler
 
 		f_train = dataScaler.transform(f_train)
 		f_test = dataScaler.transform(f_test)
+
+		print("\n--------With unscaled target data: --------\n")
+		self.lcpMLP = MLPRegressor(early_stopping=True, hidden_layer_sizes=(64,16,8), max_iter=10000)
+
+		self.lcpMLP.fit(f_train, t_train)
+
+		print("Training score: ", self.lcpMLP.score(f_train, t_train))
+		print("Testing score: ", self.lcpMLP.score(f_test, t_test), "\n")
+
+		print("\n--------With SCALED target data: --------\n")
+		targetScaler = StandardScaler()
+		targetScaler.fit(t_train)
+		t_train = targetScaler.transform(t_train)
+		t_test = targetScaler.transform(t_test)
 
 		self.lcpMLP = MLPRegressor(early_stopping=True, hidden_layer_sizes=(64,16,8), max_iter=10000)
 
@@ -193,8 +208,17 @@ class GroundLearner:
 
 		print("Training score: ", self.lcpMLP.score(f_train, t_train))
 		print("Testing score: ", self.lcpMLP.score(f_test, t_test), "\n")
-		return self.lcpMLP
 
+		"""predictions = self.lcpMLP.predict(f_test[0:20])
+
+		for i, p in enumerate(predictions):
+			print("With feature: ", f_test[i])
+			print("Target: ", t_test[i])
+			print("Made prediction: ", p)
+			print("\n")"""
+
+
+		return self.lcpMLP
 
 def main():
 
@@ -203,18 +227,18 @@ def main():
 	dirName = "MovementData/"
 
 	gl = GroundLearner(dirName)
-	gl.trainHitBallMLP()
-	#gl.trainLCP_MLP()
+	#gl.trainHitBallMLP()
+	gl.trainLCP_MLP()
 	#gl.trainLinearRegressor()
 	#gl.trainMLPRegressor()
 
-	f1 = [gl.testFeatures[0]]
-	print("First feature is: ", f1)
-	t1 = gl.testTargets[0]
-	print("First target is: ", t1)
+	#f1 = [gl.testFeatures[0]]
+	#print("First feature is: ", f1)
+	#t1 = gl.testTargets[0]
+	#print("First target is: ", t1)
 
-	prediction = gl.hbMLP.predict(f1)
-	print("Prediction is: ", prediction)
+	#prediction = gl.hbMLP.predict(f1)
+	#print("Prediction is: ", prediction)
 
 
 
