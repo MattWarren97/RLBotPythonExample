@@ -41,8 +41,9 @@ class GroundBot(BaseAgent):
         movementData = "MovementData/"
         self.learner = GroundLearner(movementData)
         #self.movementMLP = self.learner.trainMLPRegressor()
-        self.hitBallMLP = self.learner.trainHitBallMLP()
+        self.learner.trainHitBallMLP()
         self.hitBall = True
+        self.ballReset = False
 
         
         #fancy tf stuff needed for generating truncated normal values
@@ -65,9 +66,8 @@ class GroundBot(BaseAgent):
             #self.instrStartTime = newTime
             #self.instrLength = setInstrLength()
         elif self.hitBall:
-            if self.currentInstrLength >= self.instrLength-1:
+            if self.currentInstrLength >= self.instrLength-1 and not self.ballReset:
                 #within last second, reset the ball position.
-                newBallState = BallState(Physics(location=Vector3(0,0,None)))
                 self.resetBall(packet)
             self.ticksPerInstr += 1
 
@@ -110,18 +110,25 @@ class GroundBot(BaseAgent):
     def setHitBallInstructions(self):
         #build a feature: ballPos, ballVel, carPos, carOri, carVel, predictedBallPos
         self.needNewInstr = False
+        self.ballReset = False
 
         gm = self.currentGameModel
         features = []
         predBallLoc, predBallVel = self.predictBallState()
-        for o in [gm.ballLoc, gm.ballVel, gm.carLoc, gm.carOri, gm.carVel, predBallLoc, predBallVel]:
+        for o in [gm.carLoc, gm.carOri, gm.carVel, predBallLoc]:
             features.extend(o.getStrList())
 
-        targets = self.hitBallMLP.predict(features)
-        print("New Instruction based on where the ball is: ", targets)
-        self.controllerState.throttle = targets[0]
-        self.controllerState.steer = targets[1]
-        self.setInstructionTime(targets[2]+2)
+        features = [features]  #need to input a 2D array, even with only one record.
+        print("Hit-ball features are: ", features)
+        scaledF = self.learner.hitBallScaler.transform(features)
+        print("Scaled hit-ball features are: ", scaledF)
+
+        targets = self.learner.hbMLP.predict(scaledF)
+        print("New Hit-Ball Instruction: ", targets)
+        print(flush=True)
+        self.controllerState.throttle = targets[0][0]
+        self.controllerState.steer = targets[0][1]
+        self.setInstructionTime(targets[0][2]+2)
 
 
 
@@ -158,7 +165,11 @@ class GroundBot(BaseAgent):
     def resetBall(self, packet):
         #to be used when the ball has been hit
         #forces the internal GameState to set the ball back static in mid-pitch.
+        print("Would reset the ball, but doing nothing for now")
+        self.ballReset = True
 
+        #for some reason all this code is throwing errors on Vector3 has no attribute 'convert_to_flat'
+        """
         my_car = packet.game_cars[self.index]
         car_state = CarState(
             jumped=my_car.jumped, 
@@ -171,11 +182,12 @@ class GroundBot(BaseAgent):
                 location = my_car.physics.location)
             )#all set to their current values, as per the packet.
 
-        ball_state = BallState(Physics(location=Vector3(0, 0, None)))
+        ball_state = BallState()
 
         game_state = GameState(ball=ball_state, cars={self.index: car_state})
 
         self.set_game_state(game_state)
+        """
 
 class DataTracker:
     def __init__(self):

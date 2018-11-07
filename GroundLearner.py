@@ -156,8 +156,10 @@ class GroundLearner:
 		dataScaler = StandardScaler()
 		dataScaler.fit(f_train)
 
-		f_train = dataScaler.transform(f_train)
-		f_test = dataScaler.transform(f_test)
+		self.hitBallScaler = dataScaler
+		
+		f_train = self.hitBallScaler.transform(f_train)
+		f_test = self.hitBallScaler.transform(f_test)
 
 		self.hbMLP = MLPRegressor(early_stopping=True, hidden_layer_sizes=(64,16,8), max_iter=10000)
 
@@ -165,6 +167,10 @@ class GroundLearner:
 
 		print("Training score: ", self.hbMLP.score(f_train, t_train))
 		print("Testing score: ", self.hbMLP.score(f_test, t_test), "\n")
+
+		self.testFeatures = f_test
+		self.testTargets = t_test
+
 		return self.hbMLP
 
 	def trainLCP_MLP(self):
@@ -198,9 +204,18 @@ def main():
 
 	gl = GroundLearner(dirName)
 	gl.trainHitBallMLP()
-	gl.trainLCP_MLP()
-	gl.trainLinearRegressor()
-	gl.trainMLPRegressor()
+	#gl.trainLCP_MLP()
+	#gl.trainLinearRegressor()
+	#gl.trainMLPRegressor()
+
+	f1 = [gl.testFeatures[0]]
+	print("First feature is: ", f1)
+	t1 = gl.testTargets[0]
+	print("First target is: ", t1)
+
+	prediction = gl.hbMLP.predict(f1)
+	print("Prediction is: ", prediction)
+
 
 
 if __name__ == "__main__":
