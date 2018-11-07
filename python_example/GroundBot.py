@@ -4,6 +4,7 @@ import csv
 import random
 import sys
 
+
 #if errors on imports - eg (import tensorflow as tf)
 #may need to include the imports INSIDE the class
 #Saltie discussed it on the Discord ml-discussion channel 7thAugust2018
@@ -11,20 +12,24 @@ import sys
 
 from rlbot.agents.base_agent import BaseAgent, SimpleControllerState
 from rlbot.utils.structures.game_data_struct import GameTickPacket
+from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics, Vector3, Rotator
 
-import GroundLearner
 
-def setInstrLength():
+
+def getRandInstrLength():
     return random.uniform(0, 3)
 
 class GroundBot(BaseAgent):
 
     def initialize_agent(self):
 
+        from GroundLearner import GroundLearner
+        #this also has to be imported in here. Cool eh!
+
 
         #This runs once before the bot starts up
         self.controllerState = SimpleControllerState() #to be returned by get_output on each tick
-        self.currentGameState = None #game state in the most recent packet received.
+        self.currentGameModel = None #game state in the most recent packet received.
         self.currentInstrLength = 0 #duration current instruction has been given.
         self.prevPacketSysTime = 0 #if instruction has changed, -- end time of previous instruction
         self.ticksPerInstr = 0 #number of physics ticks on current instructions.
@@ -35,35 +40,92 @@ class GroundBot(BaseAgent):
         
         movementData = "MovementData/"
         self.learner = GroundLearner(movementData)
-        self.movementMLP = self.learner.trainMLPRegressor()
+        #self.movementMLP = self.learner.trainMLPRegressor()
+        self.hitBallMLP = self.learner.trainHitBallMLP()
+        self.hitBall = True
+
         
         #fancy tf stuff needed for generating truncated normal values
         #self.tfSession = tf.Session()
         #self.t_normal_gen = tf.truncated_normal((2,), mean=0, stddev=0.5)
         
 
-    def processTime(self):
+    def setInstructionTime(self, instrTime):
+        self.instrStartTime = time.clock()
+        self.instrLength = instrTime
+
+    def processTime(self, packet):
         #First: check if the current instruction should have ended:
         newTime = time.clock()
         self.currentInstrLength = newTime - self.instrStartTime
         if self.currentInstrLength >= self.instrLength:
             self.needNewInstr = True
-            #print("Need new instr true")
+            self.setInstructionTime(getRandInstrLength())
 
-            self.instrStartTime = newTime
-            self.instrLength = setInstrLength()
-        else:
+            #self.instrStartTime = newTime
+            #self.instrLength = setInstrLength()
+        elif self.hitBall:
+            if self.currentInstrLength >= self.instrLength-1:
+                #within last second, reset the ball position.
+                newBallState = BallState(Physics(location=Vector3(0,0,None)))
+                self.resetBall(packet)
             self.ticksPerInstr += 1
 
     def processState(self):
         if self.needNewInstr:
             controls = [self.controllerState.throttle, self.controllerState.steer]
-            self.dataTracker.processState(self.currentInstrLength, controls, self.currentGameState)
+            self.dataTracker.processState(self.currentInstrLength, controls, self.currentGameModel)
             print("Previous instructions have ended after ", self.currentInstrLength, " seconds, with controls: thr, st: ", controls[0], ", ", controls[1])
-            self.setNewInstructions()
+            if self.hitBall:
+                self.setHitBallInstructions()
+            else:
+                self.setRandInstructions()
 
 
-    def setNewInstructions(self):
+    
+    def updateGameModel(self, packet):
+        my_car = packet.game_cars[self.index]
+        car_location = V3(my_car.physics.location.x, my_car.physics.location.y, my_car.physics.location.z)
+        car_orientation = V3(my_car.physics.rotation.pitch, my_car.physics.rotation.yaw, my_car.physics.rotation.roll)
+        car_velocity = V3(my_car.physics.velocity.x, my_car.physics.velocity.y, my_car.physics.velocity.z)
+        ball_location = V3(packet.game_ball.physics.location.x, packet.game_ball.physics.location.y, packet.game_ball.physics.location.z)
+        ball_velocity = V3(packet.game_ball.physics.velocity.x, packet.game_ball.physics.velocity.y, packet.game_ball.physics.velocity.z)
+        self.currentGameModel = GameModel(ball_location, ball_velocity, car_location, car_orientation, car_velocity)
+
+
+
+    def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
+        #this method is automatically called by the framework once on each physics tick.
+        gameActive = packet.game_info.is_round_active
+        if not gameActive:
+            return self.controllerState
+        self.updateGameModel(packet)
+
+        self.processTime(packet) #determine if a new instruction is needed
+        self.processState()
+        
+
+        return self.controllerState
+
+    def setHitBallInstructions(self):
+        #build a feature: ballPos, ballVel, carPos, carOri, carVel, predictedBallPos
+        self.needNewInstr = False
+
+        gm = self.currentGameModel
+        features = []
+        predBallLoc, predBallVel = self.predictBallState()
+        for o in [gm.ballLoc, gm.ballVel, gm.carLoc, gm.carOri, gm.carVel, predBallLoc, predBallVel]:
+            features.extend(o.getStrList())
+
+        targets = self.hitBallMLP.predict(features)
+        print("New Instruction based on where the ball is: ", targets)
+        self.controllerState.throttle = targets[0]
+        self.controllerState.steer = targets[1]
+        self.setInstructionTime(targets[2]+2)
+
+
+
+    def setRandInstructions(self):
         #want random throttle and steer; want to aim for steer usually close to 0, throttle usually close to -1 or 1
         self.needNewInstr = False
         #with self.tfSession.as_default():
@@ -90,32 +152,34 @@ class GroundBot(BaseAgent):
         print("New instructions are throttle: " + str(self.controllerState.throttle) + ", steer: " + str(self.controllerState.steer))
         self.ticksPerInstr = 0
 
-    def updateGameState(self, packet):
-        ball_location = Vector3(packet.game_ball.physics.location.x, packet.game_ball.physics.location.y, packet.game_ball.physics.location.z)
-        ball_velocity = Vector3(packet.game_ball.physics.velocity.x, packet.game_ball.physics.velocity.y, packet.game_ball.physics.velocity.z)
+    def predictBallState(self):
+        return self.currentGameModel.ballLoc, self.currentGameModel.ballVel #for now, ball is static.
+
+    def resetBall(self, packet):
+        #to be used when the ball has been hit
+        #forces the internal GameState to set the ball back static in mid-pitch.
+
         my_car = packet.game_cars[self.index]
-        car_location = Vector3(my_car.physics.location.x, my_car.physics.location.y, my_car.physics.location.z)
-        car_orientation = Vector3(my_car.physics.rotation.pitch, my_car.physics.rotation.yaw, my_car.physics.rotation.roll)
-        car_velocity = Vector3(my_car.physics.velocity.x, my_car.physics.velocity.y, my_car.physics.velocity.z)
-        self.currentGameState = GameState(ball_location, ball_velocity, car_location, car_orientation, car_velocity)
+        car_state = CarState(
+            jumped=my_car.jumped, 
+            double_jumped=my_car.double_jumped,
+            boost_amount=my_car.boost,
+            physics = Physics(
+                velocity = my_car.physics.velocity,
+                rotation = my_car.physics.rotation,
+                angular_velocity = my_car.physics.angular_velocity,
+                location = my_car.physics.location)
+            )#all set to their current values, as per the packet.
 
+        ball_state = BallState(Physics(location=Vector3(0, 0, None)))
 
-    def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
-        #this method is automatically called by the framework once on each physics tick.
-        gameActive = packet.game_info.is_round_active
-        if not gameActive:
-            return self.controllerState
-        self.updateGameState(packet)
+        game_state = GameState(ball=ball_state, cars={self.index: car_state})
 
-        self.processTime() #determine if a new instruction is needed
-        self.processState()
-        
-
-        return self.controllerState
+        self.set_game_state(game_state)
 
 class DataTracker:
     def __init__(self):
-        self.prevGameState = None 
+        self.prevGameModel = None 
         self.fileName = "MovementData/" + str(time.time()) + ".csv"
         self.generateFormatFile()
 
@@ -123,29 +187,29 @@ class DataTracker:
       
         with open(self.fileName, 'w', newline='') as csvFile:
             dataFormatWriter = csv.writer(csvFile)
-            gameStateHeaders = ['ballLocX', 'ballLocY', 'ballLocZ', 'ballVelX', 'ballVelY', 'ballVelZ', 'carLocX', 'carLocY', 'carLocZ', 'carPitch', 'carYaw', 'carRoll', 'carVelX', 'carVelY', 'carVelZ']
+            gameModelHeaders = ['ballLocX', 'ballLocY', 'ballLocZ', 'ballVelX', 'ballVelY', 'ballVelZ', 'carLocX', 'carLocY', 'carLocZ', 'carPitch', 'carYaw', 'carRoll', 'carVelX', 'carVelY', 'carVelZ']
             controlHeaders = ["throttle", "steer", "time"]
             dataFormatHeader = []
-            for h in gameStateHeaders:
+            for h in gameModelHeaders:
                 dataFormatHeader.append(h + "_0")
-            for h in gameStateHeaders:
+            for h in gameModelHeaders:
                 dataFormatHeader.append(h + "_1")
             dataFormatHeader.extend(controlHeaders)
             dataFormatWriter.writerow(dataFormatHeader)
 
 
-    def processState(self, instructionDuration, instructions, currentGameState):
-        if self.prevGameState is not None: 
+    def processState(self, instructionDuration, instructions, currentGameModel):
+        if self.prevGameModel is not None: 
             #not the first call to this method, 'prev' variables are already initialised
             with open(self.fileName, 'a', newline='') as csvFile: #a - append
                 movementWriter = csv.writer(csvFile)
 
-                dataUnit = DataUnit(self.prevGameState, instructionDuration, currentGameState, instructions)
+                dataUnit = DataUnit(self.prevGameModel, instructionDuration, currentGameModel, instructions)
                 movementWriter.writerow(dataUnit.getStrList())
 
-        self.prevGameState = currentGameState
+        self.prevGameModel = currentGameModel
 
-class GameState:
+class GameModel:
     def __init__(self, ballLoc, ballVel, carLoc, carOri, carVel):
         self.ballLoc = ballLoc
         self.ballVel = ballVel
@@ -163,9 +227,9 @@ class GameState:
         return gameList
         
 class DataUnit:
-    def __init__(self, prevGameState, deltaT=None, newGameState=None, ctrlInputs=None):
-        prevStrList = prevGameState.convertToStrList()
-        newStrList = newGameState.convertToStrList()
+    def __init__(self, prevGameModel, deltaT=None, newGameModel=None, ctrlInputs=None):
+        prevStrList = prevGameModel.convertToStrList()
+        newStrList = newGameModel.convertToStrList()
         thr = str(ctrlInputs[0])
         st = str(ctrlInputs[1])
         self.strList = prevStrList + newStrList + [thr] + [st] + [str(deltaT)]
@@ -173,18 +237,18 @@ class DataUnit:
     def getStrList(self):
         return self.strList
 
-
-class Vector3:
+#vector3, but renamed to not clash with the other v3 used in internal game state.
+class V3:
     def __init__(self, x=0, y=0, z=0):
         self.x = float(x)
         self.y = float(y)
         self.z = float(z)
 
     def __add__(self, val):
-        return Vector3(self.x + val.x, self.y + val.y, self.z + val.z)
+        return V3(self.x + val.x, self.y + val.y, self.z + val.z)
 
     def __sub__(self, val):
-        return Vector3(self.x - val.x, self.y - val.y, self.z - val.z)
+        return V3(self.x - val.x, self.y - val.y, self.z - val.z)
 
     def getStrList(self):
         return [str(self.x), str(self.y), str(self.z)]
