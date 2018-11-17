@@ -38,12 +38,14 @@ class GroundBot(BaseAgent):
         self.instrLength = 0 #duration for which the instruction should be held.
         self.dataTracker = DataTracker() #handles writing the data
         
-        movementData = "MovementData/"
-        self.learner = GroundLearner(movementData)
+
+        self.hitBall = False
+        #movementData = "MovementData/"
+        #self.learner = GroundLearner(movementData)
         #self.movementMLP = self.learner.trainMLPRegressor()
-        self.learner.trainHitBallMLP()
-        self.hitBall = True
-        self.ballReset = False
+        #self.learner.trainHitBallMLP()
+        
+        #self.ballReset = False
 
         
         #fancy tf stuff needed for generating truncated normal values
