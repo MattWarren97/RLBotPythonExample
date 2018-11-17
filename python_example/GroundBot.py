@@ -36,7 +36,7 @@ class GroundBot(BaseAgent):
         self.needNewInstr = False #true when a new instruction needs to be given
         self.instrStartTime = 0 #time when the new instruction was started
         self.instrLength = 0 #duration for which the instruction should be held.
-        self.dataTracker = DataTracker() #handles writing the data
+        self.dataTracker = DataTracker(self.index) #handles writing the data
         
 
         self.hitBall = False
@@ -77,11 +77,18 @@ class GroundBot(BaseAgent):
         if self.needNewInstr:
             controls = [self.controllerState.throttle, self.controllerState.steer]
             self.dataTracker.processState(self.currentInstrLength, controls, self.currentGameModel)
-            print("Previous instructions have ended after ", self.currentInstrLength, " seconds, with controls: thr, st: ", controls[0], ", ", controls[1])
+            #print("Previous instructions have ended after ", self.currentInstrLength, " seconds, with controls: thr, st: ", controls[0], ", ", controls[1])
+            print("Completed an instruction on car: ", self.index, ", thr: ", 
+                self.twoDP(self.controllerState.throttle), ", st: ", self.twoDP(self.controllerState.steer),
+                "duration: ", self.twoDP(self.currentInstrLength))
             if self.hitBall:
                 self.setHitBallInstructions()
             else:
                 self.setRandInstructions()
+
+
+    def twoDP(self, value):
+        return ("%.2f" % round(value, 2))
 
 
     
@@ -173,7 +180,7 @@ class GroundBot(BaseAgent):
 
         #self.controllerState.throttle = math.pow((random.random()*2)-1, 2) #between -1 and 1
         #self.controllerState.steer = (random.random()*2)-1
-        print("New instructions are throttle: " + str(self.controllerState.throttle) + ", steer: " + str(self.controllerState.steer))
+        #print("New instructions are throttle: " + str(self.controllerState.throttle) + ", steer: " + str(self.controllerState.steer))
         self.ticksPerInstr = 0
 
     def predictBallState(self):
@@ -207,9 +214,9 @@ class GroundBot(BaseAgent):
         """
 
 class DataTracker:
-    def __init__(self):
+    def __init__(self, carIndex):
         self.prevGameModel = None 
-        self.fileName = "MovementData/" + str(time.time()) + ".csv"
+        self.fileName = "MovementData/" + str(carIndex) + "_" + str(time.time()) + ".csv"
         self.generateFormatFile()
 
     def generateFormatFile(self):
