@@ -16,8 +16,7 @@ from rlbot.utils.game_state_util import GameState, BallState, CarState, Physics,
 
 
 
-def getRandInstrLength():
-    return random.uniform(0, 3)
+
 
 class GroundBot(BaseAgent):
 
@@ -25,7 +24,7 @@ class GroundBot(BaseAgent):
 
         from GroundLearner import GroundLearner
         #this also has to be imported in here. Cool eh!
-
+        self.gameSpeed = 5 #using bakkesMod, manually set for now.
 
         #This runs once before the bot starts up
         self.controllerState = SimpleControllerState() #to be returned by get_output on each tick
@@ -35,11 +34,13 @@ class GroundBot(BaseAgent):
         self.ticksPerInstr = 0 #number of physics ticks on current instructions.
         self.needNewInstr = False #true when a new instruction needs to be given
         self.instrStartTime = 0 #time when the new instruction was started
-        self.instrLength = 0 #duration for which the instruction should be held.
-        self.dataTracker = DataTracker(self.index) #handles writing the data
+        self.instrLength = 20 #duration for which the instruction should be held.
+        #we start off with a pause of 20 seconds, to allow for manually setting gameSpeed in BakkesMod
+        self.dataTracker = DataTracker(self.index, self.gameSpeed) #handles writing the data
         
 
         self.hitBall = False
+
         #movementData = "MovementData/"
         #self.learner = GroundLearner(movementData)
         #self.movementMLP = self.learner.trainMLPRegressor()
@@ -53,6 +54,9 @@ class GroundBot(BaseAgent):
         #self.t_normal_gen = tf.truncated_normal((2,), mean=0, stddev=0.5)
         
 
+    def getRandInstrLength(self):
+        return random.uniform(0, 3)/self.gameSpeed
+
     def setInstructionTime(self, instrTime):
         self.instrStartTime = time.clock()
         self.instrLength = instrTime
@@ -63,7 +67,7 @@ class GroundBot(BaseAgent):
         self.currentInstrLength = newTime - self.instrStartTime
         if self.currentInstrLength >= self.instrLength:
             self.needNewInstr = True
-            self.setInstructionTime(getRandInstrLength())
+            self.setInstructionTime(self.getRandInstrLength())
 
             #self.instrStartTime = newTime
             #self.instrLength = setInstrLength()
@@ -72,6 +76,7 @@ class GroundBot(BaseAgent):
                 #within last second, reset the ball position.
                 self.resetBall(packet)
             self.ticksPerInstr += 1
+
 
     def processState(self):
         if self.needNewInstr:
@@ -214,13 +219,15 @@ class GroundBot(BaseAgent):
         """
 
 class DataTracker:
-    def __init__(self, carIndex):
+    def __init__(self, carIndex, gameSpeed):
         self.prevGameModel = None 
-        self.fileName = "MovementData/" + str(carIndex) + "_" + str(time.time()) + ".csv"
+        self.fileName = "MovementData/" + str(time.time()) + "_Speed" + str(gameSpeed) + "_Car" + str(carIndex) + ".csv"
         self.generateFormatFile()
 
+
     def generateFormatFile(self):
-      
+      #possibly should write the gameSpeed in too... But I'll look at remodifying the 
+      #header later on.
         with open(self.fileName, 'w', newline='') as csvFile:
             dataFormatWriter = csv.writer(csvFile)
             gameModelHeaders = ['ballLocX', 'ballLocY', 'ballLocZ', 'ballVelX', 'ballVelY', 'ballVelZ', 'carLocX', 'carLocY', 'carLocZ', 'carPitch', 'carYaw', 'carRoll', 'carVelX', 'carVelY', 'carVelZ']
