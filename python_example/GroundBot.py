@@ -80,12 +80,11 @@ class GroundBot(BaseAgent):
 
     def processState(self):
         if self.needNewInstr:
-            controls = [self.controllerState.throttle, self.controllerState.steer]
+            controls = [self.controllerState.throttle]
             self.dataTracker.processState(self.currentInstrLength, controls, self.currentGameModel)
             #print("Previous instructions have ended after ", self.currentInstrLength, " seconds, with controls: thr, st: ", controls[0], ", ", controls[1])
             print("Completed an instruction on car: ", self.index, ", thr: ", 
-                self.twoDP(self.controllerState.throttle), ", st: ", self.twoDP(self.controllerState.steer),
-                "duration: ", self.twoDP(self.currentInstrLength))
+                self.twoDP(self.controllerState.throttle), ", duration: ", self.twoDP(self.currentInstrLength))
             if self.hitBall:
                 self.setHitBallInstructions()
             else:
@@ -173,15 +172,15 @@ class GroundBot(BaseAgent):
 
         #    self.controllerState.steer = steer
         randomForThr = (random.random()*2)-1
-        randomForSte = (random.random()*2)-1
+        #randomForSte = (random.random()*2)-1
         if randomForThr < 0:
             self.controllerState.throttle = -1 - (-1*(math.pow(randomForThr, 2)))
         else:
             self.controllerState.throttle = 1 - (math.pow(randomForThr, 2))
-        if randomForSte < 0:
+        """if randomForSte < 0:
             self.controllerState.steer = -1*(math.pow(randomForSte, 2))
         else:
-            self.controllerState.steer = (math.pow(randomForSte, 2))
+            self.controllerState.steer = (math.pow(randomForSte, 2))"""
 
         #self.controllerState.throttle = math.pow((random.random()*2)-1, 2) #between -1 and 1
         #self.controllerState.steer = (random.random()*2)-1
@@ -274,8 +273,8 @@ class DataUnit:
         prevStrList = prevGameModel.convertToStrList()
         newStrList = newGameModel.convertToStrList()
         thr = str(ctrlInputs[0])
-        st = str(ctrlInputs[1])
-        self.strList = prevStrList + newStrList + [thr] + [st] + [str(deltaT)]
+        #st = str(ctrlInputs[1])
+        self.strList = prevStrList + newStrList + [thr] + [str(deltaT)]
 
     def getStrList(self):
         return self.strList
